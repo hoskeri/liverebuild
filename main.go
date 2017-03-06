@@ -22,6 +22,7 @@ func main() {
 	flag.StringVar(&service.buildAction, "onbuild", "", "shell command on build file change")
 	flag.StringVar(&service.buildFileSet.pattern, "buildfiles", "", "set of files to rebuild")
 	flag.StringVar(&service.watchFileSet.pattern, "watchfiles", "", "set of files to livereload")
+	flag.Parse()
 	log.Println("starting liverebuild")
 	log.Println(service)
 }
