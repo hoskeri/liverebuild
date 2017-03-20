@@ -1,9 +1,9 @@
 build:
-	go get -u
-	go build
-
-install:
-	go install
+	@go build
 
 test:
-	go test -v
+	@go test -v
+
+clean:
+	@go clean
+	@rm -v -f liverebuild

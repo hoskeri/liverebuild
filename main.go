@@ -4,10 +4,12 @@ import "log"
 import "flag"
 import "path/filepath"
 import "github.com/omeid/go-livereload"
+import "gopkg.in/fsnotify.v1"
 
 type FileSet struct {
 	pattern string
 	matched []string
+	watcher *fsnotify.Watcher
 }
 
 type LiveRebuild struct {
@@ -19,17 +21,19 @@ type LiveRebuild struct {
 	watchServeFallback string
 }
 
-// XXX: pattern is not recursive.
-// XXX: initial path is not validated.
 func (f *FileSet) Rescan() (err error) {
 	f.matched, err = filepath.Glob(f.pattern)
-	return err
+	return
 }
 
-func (r *LiveRebuild) Setup() error {
+func (f *FileSet) Watch() (err error) {
+	return
+}
+
+func (r *LiveRebuild) Run() error {
 	r.server = livereload.New("liverebuild")
-	r.watchFileSet.Rescan()
-	r.buildFileSet.Rescan()
+	r.watchFileSet.Watch()
+	r.buildFileSet.Watch()
 
 	return nil
 }
@@ -46,7 +50,7 @@ func main() {
 	flag.Parse()
 	log.Println("starting liverebuild")
 
-	service.Setup()
+	service.Run()
 
 	log.Println(service)
 }
