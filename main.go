@@ -23,11 +23,27 @@ type LiveRebuild struct {
 
 func (f *FileSet) Rescan() (err error) {
 	f.matched, err = filepath.Glob(f.pattern)
+	if err != nil {
+		return err
+	}
+
+	f.watcher, err = fsnotify.NewWatcher()
+	if err != nil {
+		return err
+	}
+
+	for _, e := range f.matched {
+		err = f.watcher.Add(e)
+		if err != nil {
+			f.watcher.Close()
+			return err
+		}
+	}
 	return
 }
 
 func (f *FileSet) Watch() (err error) {
-	return
+	return f.Rescan()
 }
 
 func (r *LiveRebuild) Run() error {
