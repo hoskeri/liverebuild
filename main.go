@@ -12,15 +12,6 @@ type FileSet struct {
 	watcher *fsnotify.Watcher
 }
 
-type LiveRebuild struct {
-	server             *livereload.Server
-	buildAction        string
-	buildFileSet       FileSet
-	watchFileSet       FileSet
-	watchServeRoot     string
-	watchServeFallback string
-}
-
 func (f *FileSet) Rescan() (err error) {
 	f.matched, err = filepath.Glob(f.pattern)
 	if err != nil {
@@ -39,19 +30,42 @@ func (f *FileSet) Rescan() (err error) {
 			return err
 		}
 	}
-	return
-}
-
-func (f *FileSet) Watch() (err error) {
-	return f.Rescan()
+	return err
 }
 
 func (r *LiveRebuild) Run() error {
 	r.server = livereload.New("liverebuild")
-	r.watchFileSet.Watch()
-	r.buildFileSet.Watch()
+	r.watchFileSet.Rescan()
+	r.buildFileSet.Rescan()
 
+	for {
+		select {
+		case event := <-r.watchFileSet.watcher.Events:
+			if event.Op&(fsnotify.Rename|fsnotify.Create|fsnotify.Write) > 0 {
+				log.Printf("running watchAction %s\n", r.buildAction)
+			}
+		case event := <-r.buildFileSet.watcher.Events:
+			if event.Op&(fsnotify.Rename|fsnotify.Create|fsnotify.Write) > 0 {
+				log.Printf("running buildAction %s\n", r.buildAction)
+			}
+
+		case e := <-r.buildFileSet.watcher.Errors:
+			log.Printf("caught error %s\n", e)
+
+		case e := <-r.watchFileSet.watcher.Errors:
+			log.Printf("caught error %s\n", e)
+		}
+	}
 	return nil
+}
+
+type LiveRebuild struct {
+	server             *livereload.Server
+	buildAction        string
+	buildFileSet       FileSet
+	watchFileSet       FileSet
+	watchServeRoot     string
+	watchServeFallback string
 }
 
 func main() {
@@ -67,6 +81,5 @@ func main() {
 	log.Println("starting liverebuild")
 
 	service.Run()
-
-	log.Println(service)
+	log.Println("liverebuild is running")
 }
