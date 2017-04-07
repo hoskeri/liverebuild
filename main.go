@@ -1,6 +1,6 @@
 package main
 
-import "log"
+import log "github.com/sirupsen/logrus"
 import "flag"
 import "path/filepath"
 import "github.com/omeid/go-livereload"
@@ -42,18 +42,18 @@ func (r *LiveRebuild) Run() error {
 		select {
 		case event := <-r.watchFileSet.watcher.Events:
 			if event.Op&(fsnotify.Rename|fsnotify.Create|fsnotify.Write) > 0 {
-				log.Printf("running watchAction %s\n", r.buildAction)
+				log.Debug("running watchAction %s\n", r.buildAction)
 			}
 		case event := <-r.buildFileSet.watcher.Events:
 			if event.Op&(fsnotify.Rename|fsnotify.Create|fsnotify.Write) > 0 {
-				log.Printf("running buildAction %s\n", r.buildAction)
+				log.Debug("running buildAction %s\n", r.buildAction)
 			}
 
 		case e := <-r.buildFileSet.watcher.Errors:
-			log.Printf("caught error %s\n", e)
+			log.Debugf("caught error %s\n", e)
 
 		case e := <-r.watchFileSet.watcher.Errors:
-			log.Printf("caught error %s\n", e)
+			log.Debugf("caught error %s\n", e)
 		}
 	}
 	return nil
