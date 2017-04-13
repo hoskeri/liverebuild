@@ -2,6 +2,7 @@ package main
 
 import log "github.com/sirupsen/logrus"
 import "flag"
+import "net/http"
 import "path/filepath"
 import "github.com/omeid/go-livereload"
 import "gopkg.in/fsnotify.v1"
@@ -38,16 +39,32 @@ func (f *FileSet) Rescan() (err error) {
 	return err
 }
 
+type wrappedWriter struct {
+	w http.ResponseWriter
+	h http.Header
+}
+
+func (r *LiveRebuild) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	r.staticMux.ServeHTTP(w, req)
+}
+
 func (r *LiveRebuild) Run() error {
-	r.server = livereload.New("liverebuild")
-	log.Errorln(r.watchFileSet.Rescan())
-	log.Errorln(r.buildFileSet.Rescan())
+	r.lrServer = livereload.New("liverebuild")
+
+	r.lrMux = http.NewServeMux()
+	r.lrMux.HandleFunc("/livereload.js", livereload.LivereloadScript)
+	r.lrMux.Handle("/", r.lrServer)
+
+	r.staticMux.Handle("/", http.FileServer(http.Dir(r.watchServeRoot)))
+
+	r.buildFileSet.Rescan()
+	r.watchFileSet.Rescan()
 
 	for {
 		select {
 		case event := <-r.watchFileSet.watcher.Events:
 			if event.Op&(fsnotify.Rename|fsnotify.Create|fsnotify.Write) > 0 {
-				log.Debug("running watchAction %s", r.buildAction)
+				log.Debug("reload file %s", event.Name)
 			}
 		case event := <-r.buildFileSet.watcher.Events:
 			if event.Op&(fsnotify.Rename|fsnotify.Create|fsnotify.Write) > 0 {
@@ -65,7 +82,9 @@ func (r *LiveRebuild) Run() error {
 }
 
 type LiveRebuild struct {
-	server             *livereload.Server
+	lrServer           *livereload.Server
+	lrMux              *http.ServeMux
+	staticMux          *http.ServeMux
 	buildAction        string
 	buildFileSet       FileSet
 	watchFileSet       FileSet
@@ -74,6 +93,7 @@ type LiveRebuild struct {
 }
 
 func main() {
+	var verbose = false
 	service := new(LiveRebuild)
 
 	flag.StringVar(&service.buildAction, "onbuild", "", "shell command on build file change")
@@ -81,12 +101,14 @@ func main() {
 	flag.StringVar(&service.watchFileSet.pattern, "watchfiles", "", "set of files to livereload")
 	flag.StringVar(&service.watchServeRoot, "root", "", "static server document root")
 	flag.StringVar(&service.watchServeFallback, "fallback", "index.html", "path to render on fallback")
-
-	log.SetLevel(log.DebugLevel)
+	flag.BoolVar(&verbose, "verbose", false, "verbose logging")
 
 	flag.Parse()
 
-	log.Println("starting liverebuild")
+	if verbose {
+		log.SetLevel(log.DebugLevel)
+	}
+
+	log.Debugln("starting liverebuild")
 	service.Run()
-	log.Println("liverebuild is running")
 }
