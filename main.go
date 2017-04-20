@@ -6,6 +6,7 @@ import "net/http"
 import "path/filepath"
 import "github.com/omeid/go-livereload"
 import "gopkg.in/fsnotify.v1"
+import "os"
 
 type BuildAction interface {
 	FileChanged(path string) error
@@ -39,23 +40,25 @@ func (f *FileSet) Rescan() (err error) {
 	return err
 }
 
-type wrappedWriter struct {
-	w http.ResponseWriter
-	h http.Header
-}
-
-func (r *LiveRebuild) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	r.staticMux.ServeHTTP(w, req)
-}
-
-func (r *LiveRebuild) Run() error {
+func (r *LiveRebuild) Run() (err error) {
 	r.lrServer = livereload.New("liverebuild")
 
 	r.lrMux = http.NewServeMux()
 	r.lrMux.HandleFunc("/livereload.js", livereload.LivereloadScript)
 	r.lrMux.Handle("/", r.lrServer)
 
+	r.staticMux = http.NewServeMux()
 	r.staticMux.Handle("/", http.FileServer(http.Dir(r.watchServeRoot)))
+
+	err = http.ListenAndServe(r.listenStatic, r.staticMux)
+	if err != nil {
+		return err
+	}
+
+	err = http.ListenAndServe(r.listenStatic, r.lrMux)
+	if err != nil {
+		return err
+	}
 
 	r.buildFileSet.Rescan()
 	r.watchFileSet.Rescan()
@@ -82,6 +85,8 @@ func (r *LiveRebuild) Run() error {
 }
 
 type LiveRebuild struct {
+	listenStatic       string
+	listenLR           string
 	lrServer           *livereload.Server
 	lrMux              *http.ServeMux
 	staticMux          *http.ServeMux
@@ -96,6 +101,8 @@ func main() {
 	var verbose = false
 	service := new(LiveRebuild)
 
+	flag.StringVar(&service.listenStatic, "listenStatic", ":4000", "shell command on build file change")
+	flag.StringVar(&service.listenLR, "listenLR", ":35729", "shell command on build file change")
 	flag.StringVar(&service.buildAction, "onbuild", "", "shell command on build file change")
 	flag.StringVar(&service.buildFileSet.pattern, "buildfiles", "", "set of files to rebuild")
 	flag.StringVar(&service.watchFileSet.pattern, "watchfiles", "", "set of files to livereload")
@@ -110,5 +117,9 @@ func main() {
 	}
 
 	log.Debugln("starting liverebuild")
-	service.Run()
+	var err = service.Run()
+	if err != nil {
+		log.Fatalf("error: %s", err)
+		os.Exit(1)
+	}
 }
