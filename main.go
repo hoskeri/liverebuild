@@ -14,23 +14,43 @@ type BuildAction interface {
 
 type FileSet struct {
 	name    string
+	baseDir string
 	pattern string
 	matched []string
 	watcher *fsnotify.Watcher
 }
 
-func RescanDir(curdir, pattern string) (m []string, err error) {
-	matched, err = filepath.Glob(f.pattern)
+func rescanDir(curdir, pattern string) (m []string, err error) {
+	m, err = filepath.Glob(pattern)
 	if err != nil {
-		return err
+		return
 	}
 
-	return matched
+	for _, e := range m {
+		var fi, err = os.Stat(e)
+		switch {
+		case err != nil:
+			return nil, err
+		case fi.IsDir():
+			var m2, err = rescanDir(e, "*")
+			if err != nil {
+				return nil, err
+			}
+			m = append(m, m2...)
+		}
+	}
+
+	return
 }
 
 func (f *FileSet) Rescan() (err error) {
 	log.Debugf("matching pattern %s", f.pattern)
-	f.matched, err = filepath.Glob(f.pattern)
+	f.baseDir, err = os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	f.matched, err = rescanDir(f.baseDir, f.pattern)
 	if err != nil {
 		return err
 	}
