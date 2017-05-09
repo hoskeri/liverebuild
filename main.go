@@ -13,12 +13,23 @@ type BuildAction interface {
 }
 
 type FileSet struct {
+	name    string
 	pattern string
 	matched []string
 	watcher *fsnotify.Watcher
 }
 
+func RescanDir(curdir, pattern string) (m []string, err error) {
+	matched, err = filepath.Glob(f.pattern)
+	if err != nil {
+		return err
+	}
+
+	return matched
+}
+
 func (f *FileSet) Rescan() (err error) {
+	log.Debugf("matching pattern %s", f.pattern)
 	f.matched, err = filepath.Glob(f.pattern)
 	if err != nil {
 		return err
@@ -50,18 +61,30 @@ func (r *LiveRebuild) Run() (err error) {
 	r.staticMux = http.NewServeMux()
 	r.staticMux.Handle("/", http.FileServer(http.Dir(r.watchServeRoot)))
 
-	err = http.ListenAndServe(r.listenStatic, r.staticMux)
+	go func() {
+		var err = http.ListenAndServe(r.listenStatic, r.staticMux)
+		if err != nil {
+			log.Error(err)
+		}
+	}()
+
+	go func() {
+		var err = http.ListenAndServe(r.listenLR, r.lrMux)
+		if err != nil {
+			log.Error(err)
+		}
+	}()
+
+	err = r.buildFileSet.Rescan()
 	if err != nil {
+		log.Error(err)
 		return err
 	}
-
-	err = http.ListenAndServe(r.listenStatic, r.lrMux)
+	err = r.watchFileSet.Rescan()
 	if err != nil {
+		log.Error(err)
 		return err
 	}
-
-	r.buildFileSet.Rescan()
-	r.watchFileSet.Rescan()
 
 	for {
 		select {
@@ -114,6 +137,18 @@ func main() {
 
 	if verbose {
 		log.SetLevel(log.DebugLevel)
+	}
+
+	if service.watchServeRoot == "" {
+		log.Fatalf("watchServeRoot is empty")
+	}
+
+	if service.buildFileSet.pattern == "" {
+		log.Fatalf("buildFileSet is empty")
+	}
+
+	if service.watchFileSet.pattern == "" {
+		log.Fatalf("watchFileSet is empty")
 	}
 
 	log.Debugln("starting liverebuild")
