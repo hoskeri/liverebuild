@@ -160,15 +160,15 @@ func main() {
 	}
 
 	if service.watchServeRoot == "" {
-		log.Fatalf("watchServeRoot is empty")
+		log.Fatalf("watchServeRoot is not set")
 	}
 
 	if service.buildFileSet.pattern == "" {
-		log.Fatalf("buildFileSet is empty")
+		log.Fatalf("buildFileSet is not set")
 	}
 
 	if service.watchFileSet.pattern == "" {
-		log.Fatalf("watchFileSet is empty")
+		log.Fatalf("watchFileSet is not set")
 	}
 
 	log.Debugln("starting liverebuild")
