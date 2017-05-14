@@ -160,15 +160,15 @@ func main() {
 	}
 
 	if service.watchServeRoot == "" {
-		log.Fatalf("watchServeRoot is not set")
+		log.Fatalf("watchServeRoot is not defined.")
 	}
 
 	if service.buildFileSet.pattern == "" {
-		log.Fatalf("buildFileSet is not set")
+		log.Fatalf("buildFileSet is not defined.")
 	}
 
 	if service.watchFileSet.pattern == "" {
-		log.Fatalf("watchFileSet is not set")
+		log.Fatalf("watchFileSet is not defined.")
 	}
 
 	log.Debugln("starting liverebuild")
