@@ -6,6 +6,7 @@ import "net/http"
 import "path/filepath"
 import "github.com/omeid/go-livereload"
 import "gopkg.in/fsnotify.v1"
+import "github.com/rakyll/globalconf"
 import "os"
 
 type BuildAction interface {
@@ -128,15 +129,18 @@ func (r *LiveRebuild) Run() (err error) {
 }
 
 type LiveRebuild struct {
-	listenStatic       string
-	listenLR           string
-	lrServer           *livereload.Server
-	lrMux              *http.ServeMux
-	staticMux          *http.ServeMux
-	buildAction        string
-	buildFileSet       FileSet
-	watchFileSet       FileSet
+	listenStatic string
+	listenLR     string
+	lrServer     *livereload.Server
+	lrMux        *http.ServeMux
+	staticMux    *http.ServeMux
+
+	buildActionRoot string
+	buildAction     string
+	buildFileSet    FileSet
+
 	watchServeRoot     string
+	watchFileSet       FileSet
 	watchServeFallback string
 }
 
@@ -144,16 +148,34 @@ func main() {
 	var verbose = false
 	service := new(LiveRebuild)
 
+	var opts = globalconf.Options{
+		Filename:  ".liverebuildrc",
+		EnvPrefix: "LIRB_",
+	}
+
 	flag.StringVar(&service.listenStatic, "listenStatic", ":4000", "shell command on build file change")
-	flag.StringVar(&service.listenLR, "listenLR", ":35729", "shell command on build file change")
-	flag.StringVar(&service.buildAction, "onbuild", "", "shell command on build file change")
-	flag.StringVar(&service.buildFileSet.pattern, "buildfiles", "", "set of files to rebuild")
-	flag.StringVar(&service.watchFileSet.pattern, "watchfiles", "", "set of files to livereload")
-	flag.StringVar(&service.watchServeRoot, "root", "", "static server document root")
-	flag.StringVar(&service.watchServeFallback, "fallback", "index.html", "path to render on fallback")
+	flag.StringVar(&service.listenLR, "listenLivereload", ":35729", "shell command on build file change")
+
+	flag.StringVar(&service.buildActionRoot, "buildCommandRoot", "", "base directory for build")
+	flag.StringVar(&service.buildAction, "buildCommand", "", "command to build")
+	flag.StringVar(&service.buildFileSet.pattern, "buildFiles", "", "set of files to rebuild")
+
+	flag.StringVar(&service.watchFileSet.pattern, "watchServefiles", "", "set of files to livereload")
+	flag.StringVar(&service.watchServeRoot, "watchServeRoot", "", "static server document root")
+	flag.StringVar(&service.watchServeFallback, "watchServeFallback", "index.html", "path to render on fallback")
+
 	flag.BoolVar(&verbose, "verbose", false, "verbose logging")
 
-	flag.Parse()
+	var conf, err = globalconf.NewWithOptions(&opts)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	conf.ParseAll()
+
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	if verbose {
 		log.SetLevel(log.DebugLevel)
@@ -172,7 +194,7 @@ func main() {
 	}
 
 	log.Debugln("starting liverebuild")
-	var err = service.Run()
+	err = service.Run()
 	if err != nil {
 		log.Fatalf("error: %s", err)
 		os.Exit(1)
