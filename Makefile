@@ -2,7 +2,8 @@ install:
 	@go install
 
 test:
-	@go test -v
+	@go build
+	@cd ./testdata/ && liverebuild
 
 clean:
 	@go clean

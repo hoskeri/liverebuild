@@ -145,52 +145,60 @@ type LiveRebuild struct {
 }
 
 func main() {
-	var verbose = false
 	service := new(LiveRebuild)
+
+	listenStatic := flag.String("listenstatic", ":4000", "shell command on build file change")
+	listenLR := flag.String("listenlivereload", ":35729", "shell command on build file change")
+	verbose := flag.Bool("verbose", false, "verbose logging")
+
+	buildActionRoot := flag.String("buildcommandroot", "", "base directory for build")
+	buildAction := flag.String("buildcommand", "", "command to build")
+	buildFiles := flag.String("buildfiles", "", "set of files to rebuild")
+
+	watchServeRoot := flag.String("watchserveroot", "", "static server document root")
+	watchFiles := flag.String("watchservefiles", "", "set of files to livereload")
+	watchServeFallback := flag.String("watchservefallback", "index.html", "path to render on fallback")
 
 	var opts = globalconf.Options{
 		Filename:  ".liverebuildrc",
 		EnvPrefix: "LIRB_",
 	}
 
-	flag.StringVar(&service.listenStatic, "listenStatic", ":4000", "shell command on build file change")
-	flag.StringVar(&service.listenLR, "listenLivereload", ":35729", "shell command on build file change")
-
-	flag.StringVar(&service.buildActionRoot, "buildCommandRoot", "", "base directory for build")
-	flag.StringVar(&service.buildAction, "buildCommand", "", "command to build")
-	flag.StringVar(&service.buildFileSet.pattern, "buildFiles", "", "set of files to rebuild")
-
-	flag.StringVar(&service.watchFileSet.pattern, "watchServefiles", "", "set of files to livereload")
-	flag.StringVar(&service.watchServeRoot, "watchServeRoot", "", "static server document root")
-	flag.StringVar(&service.watchServeFallback, "watchServeFallback", "index.html", "path to render on fallback")
-
-	flag.BoolVar(&verbose, "verbose", false, "verbose logging")
-
 	var conf, err = globalconf.NewWithOptions(&opts)
+
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	conf.ParseAll()
 
-	if err != nil {
-		log.Fatal(err)
-	}
+	flag.VisitAll(func(f *flag.Flag) { log.Println(f.Name, "->", f.Value) })
 
-	if verbose {
+	service.listenStatic = *listenStatic
+	service.listenLR = *listenLR
+
+	service.buildActionRoot = *buildActionRoot
+	service.buildAction = *buildAction
+	service.buildFileSet.pattern = *buildFiles
+
+	service.watchServeRoot = *watchServeRoot
+	service.watchFileSet.pattern = *watchFiles
+	service.watchServeFallback = *watchServeFallback
+
+	if *verbose {
 		log.SetLevel(log.DebugLevel)
 	}
 
 	if service.watchServeRoot == "" {
-		log.Fatalf("watchServeRoot is not defined.")
+		log.Fatalf("watchserveroot is not defined.")
 	}
 
 	if service.buildFileSet.pattern == "" {
-		log.Fatalf("buildFileSet is not defined.")
+		log.Fatalf("buildfileset is not defined.")
 	}
 
 	if service.watchFileSet.pattern == "" {
-		log.Fatalf("watchFileSet is not defined.")
+		log.Fatalf("watchfileset is not defined.")
 	}
 
 	log.Debugln("starting liverebuild")
