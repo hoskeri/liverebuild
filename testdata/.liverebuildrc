@@ -11,4 +11,3 @@ watchFallback = index.html # render on 404
 listenLivereload = :37529
 listenStatic = :4000
 verbose = true
-

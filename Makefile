@@ -3,7 +3,7 @@ install:
 
 test:
 	@go build
-	@cd ./testdata/ && liverebuild
+	@cd ./testdata/ && ../liverebuild
 
 clean:
 	@go clean

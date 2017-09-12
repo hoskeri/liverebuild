@@ -7,6 +7,7 @@ import "path/filepath"
 import "github.com/omeid/go-livereload"
 import "gopkg.in/fsnotify.v1"
 import "github.com/rakyll/globalconf"
+import "strings"
 import "os"
 
 type BuildAction interface {
@@ -16,28 +17,32 @@ type BuildAction interface {
 type FileSet struct {
 	name    string
 	baseDir string
-	pattern string
+	pattern []string
 	matched []string
 	watcher *fsnotify.Watcher
 }
 
-func rescanDir(curdir, pattern string) (m []string, err error) {
-	m, err = filepath.Glob(pattern)
+func rescanDir(curdir string, pattern []string) (m []string, err error) {
+	wd, err := os.Getwd()
 	if err != nil {
-		return
+		return nil, err
 	}
 
-	for _, e := range m {
-		var fi, err = os.Stat(e)
-		switch {
-		case err != nil:
-			return nil, err
-		case fi.IsDir():
-			var m2, err = rescanDir(e, "*")
-			if err != nil {
+	for _, p := range pattern {
+		rp := filepath.Join(wd, curdir, p)
+		g, err2 := filepath.Glob(rp)
+		if err != nil {
+			return nil, err2
+		}
+
+		for _, e := range g {
+			var fi, err = os.Stat(e)
+			switch {
+			case err != nil:
 				return nil, err
+			case fi.Mode().IsRegular():
+				m = append(m, e)
 			}
-			m = append(m, m2...)
 		}
 	}
 
@@ -46,15 +51,13 @@ func rescanDir(curdir, pattern string) (m []string, err error) {
 
 func (f *FileSet) Rescan() (err error) {
 	log.Debugf("matching pattern %s", f.pattern)
-	f.baseDir, err = os.Getwd()
-	if err != nil {
-		return err
-	}
 
 	f.matched, err = rescanDir(f.baseDir, f.pattern)
 	if err != nil {
 		return err
 	}
+
+	log.Debugln(f.matched)
 
 	f.watcher, err = fsnotify.NewWatcher()
 	if err != nil {
@@ -172,34 +175,24 @@ func main() {
 
 	conf.ParseAll()
 
-	flag.VisitAll(func(f *flag.Flag) { log.Println(f.Name, "->", f.Value) })
+	if *verbose {
+		log.SetLevel(log.DebugLevel)
+	}
+
+	flag.VisitAll(func(f *flag.Flag) { log.Debugln(f.Name, "->", f.Value) })
 
 	service.listenStatic = *listenStatic
 	service.listenLR = *listenLR
 
 	service.buildActionRoot = *buildActionRoot
 	service.buildAction = *buildAction
-	service.buildFileSet.pattern = *buildFiles
+	service.buildFileSet.pattern = strings.Split(*buildFiles, " ")
+	service.buildFileSet.baseDir = *buildActionRoot
 
 	service.watchServeRoot = *watchServeRoot
-	service.watchFileSet.pattern = *watchFiles
 	service.watchServeFallback = *watchServeFallback
-
-	if *verbose {
-		log.SetLevel(log.DebugLevel)
-	}
-
-	if service.watchServeRoot == "" {
-		log.Fatalf("watchserveroot is not defined.")
-	}
-
-	if service.buildFileSet.pattern == "" {
-		log.Fatalf("buildfileset is not defined.")
-	}
-
-	if service.watchFileSet.pattern == "" {
-		log.Fatalf("watchfileset is not defined.")
-	}
+	service.watchFileSet.pattern = strings.Split(*watchFiles, " ")
+	service.watchFileSet.baseDir = *watchServeRoot
 
 	log.Debugln("starting liverebuild")
 	err = service.Run()
