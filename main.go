@@ -22,6 +22,7 @@ type FileSet struct {
 	watcher *fsnotify.Watcher
 }
 
+// FIXME: watch the directories as well.
 func rescanDir(curdir string, pattern []string) (m []string, err error) {
 	wd, err := os.Getwd()
 	if err != nil {
@@ -82,6 +83,9 @@ func (r *LiveRebuild) Run() (err error) {
 	r.lrMux.HandleFunc("/livereload.js", livereload.LivereloadScript)
 	r.lrMux.Handle("/", r.lrServer)
 
+	// FIXME: call fallback url on 404.
+	//        set caching headers.
+	//        call backend on matched requests.
 	r.staticMux = http.NewServeMux()
 	r.staticMux.Handle("/", http.FileServer(http.Dir(r.watchServeRoot)))
 
@@ -110,15 +114,17 @@ func (r *LiveRebuild) Run() (err error) {
 		return err
 	}
 
+	const interestedEvents = fsnotify.Create | fsnotify.Remove | fsnotify.Write | fsnotify.Rename
+
 	for {
 		select {
 		case event := <-r.watchFileSet.watcher.Events:
-			if event.Op&(fsnotify.Rename|fsnotify.Create|fsnotify.Write) > 0 {
-				log.Debug("reload file %s", event.Name)
+			if event.Op&interestedEvents > 0 {
+				log.Debugf("reload file %s", event.Name)
 			}
 		case event := <-r.buildFileSet.watcher.Events:
-			if event.Op&(fsnotify.Rename|fsnotify.Create|fsnotify.Write) > 0 {
-				log.Debug("running buildAction %s", r.buildAction)
+			if event.Op&interestedEvents > 0 {
+				log.Debugf("running buildAction %s", r.buildAction)
 			}
 
 		case e := <-r.buildFileSet.watcher.Errors:
