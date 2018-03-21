@@ -1,5 +1,5 @@
 install:
-	@go build
+	@go build -o ./liverebuild
 
 clean:
 	@go clean
