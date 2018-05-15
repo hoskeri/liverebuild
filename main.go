@@ -4,6 +4,7 @@ import log "github.com/sirupsen/logrus"
 import "flag"
 import "net/http"
 import "path/filepath"
+import "path"
 import "github.com/omeid/go-livereload"
 import "github.com/fsnotify/fsnotify"
 import "github.com/rakyll/globalconf"
@@ -35,6 +36,8 @@ func rescanDir(curdir string, pattern []string) (m []string, err error) {
 		if err != nil {
 			return nil, err2
 		}
+
+		m = append(m, path.Dir(rp))
 
 		for _, e := range g {
 			var fi, err = os.Stat(e)
@@ -120,11 +123,12 @@ func (r *LiveRebuild) Run() (err error) {
 		select {
 		case event := <-r.watchFileSet.watcher.Events:
 			if event.Op&interestedEvents > 0 {
-				log.Debugf("reload file %s", event.Name)
+				log.Debugf("reload file %s: %s", event.Name, event.Op)
+				r.lrServer.Reload(event.Name, false)
 			}
 		case event := <-r.buildFileSet.watcher.Events:
 			if event.Op&interestedEvents > 0 {
-				log.Debugf("running buildAction %s", r.buildAction)
+				log.Debugf("running buildAction %s: %s", event.Name, event.Op)
 			}
 
 		case e := <-r.buildFileSet.watcher.Errors:

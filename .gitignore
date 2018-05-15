@@ -1,2 +1,4 @@
 liverebuild
 *.sw*
+example/
+!example/.liverebuildrc
