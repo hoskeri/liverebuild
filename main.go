@@ -10,6 +10,7 @@ import "github.com/fsnotify/fsnotify"
 import "github.com/rakyll/globalconf"
 import "strings"
 import "os"
+import "os/exec"
 
 type BuildAction interface {
 	FileChanged(path string) error
@@ -117,7 +118,7 @@ func (r *LiveRebuild) Run() (err error) {
 		return err
 	}
 
-	const interestedEvents = fsnotify.Create | fsnotify.Remove | fsnotify.Write | fsnotify.Rename
+	const interestedEvents = fsnotify.Create | fsnotify.Remove | fsnotify.Rename
 
 	for {
 		select {
@@ -129,6 +130,7 @@ func (r *LiveRebuild) Run() (err error) {
 		case event := <-r.buildFileSet.watcher.Events:
 			if event.Op&interestedEvents > 0 {
 				log.Debugf("running buildAction %s: %s", event.Name, event.Op)
+				exec.Command("/bin/sh", "-ec", r.buildAction)
 			}
 
 		case e := <-r.buildFileSet.watcher.Errors:
@@ -138,7 +140,6 @@ func (r *LiveRebuild) Run() (err error) {
 			log.Debugf("caught error %s", e)
 		}
 	}
-	return nil
 }
 
 type LiveRebuild struct {
