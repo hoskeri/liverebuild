@@ -3,7 +3,6 @@ package main
 import log "github.com/sirupsen/logrus"
 import "flag"
 import "net/http"
-import "path/filepath"
 import "path"
 import "github.com/omeid/go-livereload"
 import "github.com/fsnotify/fsnotify"
@@ -17,67 +16,20 @@ type BuildAction interface {
 }
 
 type FileSet struct {
-	name    string
 	baseDir string
-	pattern []string
-	matched []string
+	match   string
 	watcher *fsnotify.Watcher
 }
 
-// FIXME: watch the directories as well.
-func rescanDir(curdir string, pattern []string) (m []string, err error) {
-	wd, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
-
-	for _, p := range pattern {
-		rp := filepath.Join(wd, curdir, p)
-		g, err2 := filepath.Glob(rp)
-		if err != nil {
-			return nil, err2
-		}
-
-		m = append(m, path.Dir(rp))
-
-		for _, e := range g {
-			var fi, err = os.Stat(e)
-			switch {
-			case err != nil:
-				return nil, err
-			case fi.Mode().IsRegular():
-				m = append(m, e)
-			}
-		}
-	}
-
-	return
-}
-
-func (f *FileSet) Rescan() (err error) {
-	log.Debugf("matching pattern %s", f.pattern)
-
-	f.matched, err = rescanDir(f.baseDir, f.pattern)
-	if err != nil {
-		return err
-	}
-
-	log.Debugln(f.matched)
-
+func New(pat string) (f *FileSet, err error) {
 	f.watcher, err = fsnotify.NewWatcher()
 	if err != nil {
-		return err
+		return
 	}
 
-	for _, e := range f.matched {
-		log.Debugf("watching file %s", e)
-		err = f.watcher.Add(e)
-		if err != nil {
-			f.watcher.Close()
-			return err
-		}
-	}
-	return err
+	f.baseDir = path.Dir(pat)
+	f.match = path.Base(pat)
+	return
 }
 
 func (r *LiveRebuild) Run() (err error) {
@@ -106,17 +58,6 @@ func (r *LiveRebuild) Run() (err error) {
 			log.Error(err)
 		}
 	}()
-
-	err = r.buildFileSet.Rescan()
-	if err != nil {
-		log.Error(err)
-		return err
-	}
-	err = r.watchFileSet.Rescan()
-	if err != nil {
-		log.Error(err)
-		return err
-	}
 
 	const interestedEvents = fsnotify.Create | fsnotify.Remove | fsnotify.Rename
 
