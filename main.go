@@ -21,11 +21,8 @@ type FileSet struct {
 	watcher *fsnotify.Watcher
 }
 
-func New(pat string) (f *FileSet, err error) {
-	f.watcher, err = fsnotify.NewWatcher()
-	if err != nil {
-		return
-	}
+func New(pat string) (f FileSet) {
+	f.watcher, _ = fsnotify.NewWatcher()
 
 	f.baseDir = path.Dir(pat)
 	f.match = path.Base(pat)
@@ -63,21 +60,21 @@ func (r *LiveRebuild) Run() (err error) {
 
 	for {
 		select {
-		case event := <-r.watchFileSet.watcher.Events:
+		case event := <-r.watchFileSet[0].watcher.Events:
 			if event.Op&interestedEvents > 0 {
 				log.Debugf("reload file %s: %s", event.Name, event.Op)
 				r.lrServer.Reload(event.Name, false)
 			}
-		case event := <-r.buildFileSet.watcher.Events:
+		case event := <-r.buildFileSet[0].watcher.Events:
 			if event.Op&interestedEvents > 0 {
 				log.Debugf("running buildAction %s: %s", event.Name, event.Op)
 				exec.Command("/bin/sh", "-ec", r.buildAction)
 			}
 
-		case e := <-r.buildFileSet.watcher.Errors:
+		case e := <-r.buildFileSet[0].watcher.Errors:
 			log.Debugf("caught error %s", e)
 
-		case e := <-r.watchFileSet.watcher.Errors:
+		case e := <-r.watchFileSet[0].watcher.Errors:
 			log.Debugf("caught error %s", e)
 		}
 	}
@@ -92,10 +89,10 @@ type LiveRebuild struct {
 
 	buildActionRoot string
 	buildAction     string
-	buildFileSet    FileSet
+	buildFileSet    []FileSet
 
 	watchServeRoot     string
-	watchFileSet       FileSet
+	watchFileSet       []FileSet
 	watchServeFallback string
 }
 
@@ -138,13 +135,16 @@ func main() {
 
 	service.buildActionRoot = *buildActionRoot
 	service.buildAction = *buildAction
-	service.buildFileSet.pattern = strings.Split(*buildFiles, " ")
-	service.buildFileSet.baseDir = *buildActionRoot
+	for _, e := range strings.Split(*buildFiles, " ") {
+		service.buildFileSet = append(service.buildFileSet, New(e))
+	}
 
 	service.watchServeRoot = *watchServeRoot
 	service.watchServeFallback = *watchServeFallback
-	service.watchFileSet.pattern = strings.Split(*watchFiles, " ")
-	service.watchFileSet.baseDir = *watchServeRoot
+
+	for _, e := range strings.Split(*watchFiles, " ") {
+		service.watchFileSet = append(service.watchFileSet, New(e))
+	}
 
 	log.Debugln("starting liverebuild")
 	err = service.Run()
