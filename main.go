@@ -9,23 +9,27 @@ import "github.com/fsnotify/fsnotify"
 import "github.com/rakyll/globalconf"
 import "strings"
 import "os"
-import "os/exec"
 
 type BuildAction interface {
 	FileChanged(path string) error
 }
 
 type FileSet struct {
+	name    string
 	baseDir string
 	match   string
 	watcher *fsnotify.Watcher
 }
 
-func New(pat string) (f FileSet) {
-	f.watcher, _ = fsnotify.NewWatcher()
+func New(name, pat string) (f *FileSet) {
+	f = &FileSet{
+		name:    name,
+		baseDir: path.Dir(pat),
+		match:   path.Base(pat),
+	}
 
-	f.baseDir = path.Dir(pat)
-	f.match = path.Base(pat)
+	f.watcher, _ = fsnotify.NewWatcher()
+	f.watcher.Add(f.baseDir)
 	return
 }
 
@@ -60,21 +64,12 @@ func (r *LiveRebuild) Run() (err error) {
 
 	for {
 		select {
-		case event := <-r.watchFileSet[0].watcher.Events:
+		case event := <-r.fileSet[0].watcher.Events:
 			if event.Op&interestedEvents > 0 {
 				log.Debugf("reload file %s: %s", event.Name, event.Op)
 				r.lrServer.Reload(event.Name, false)
 			}
-		case event := <-r.buildFileSet[0].watcher.Events:
-			if event.Op&interestedEvents > 0 {
-				log.Debugf("running buildAction %s: %s", event.Name, event.Op)
-				exec.Command("/bin/sh", "-ec", r.buildAction)
-			}
-
-		case e := <-r.buildFileSet[0].watcher.Errors:
-			log.Debugf("caught error %s", e)
-
-		case e := <-r.watchFileSet[0].watcher.Errors:
+		case e := <-r.fileSet[0].watcher.Errors:
 			log.Debugf("caught error %s", e)
 		}
 	}
@@ -87,21 +82,22 @@ type LiveRebuild struct {
 	lrMux        *http.ServeMux
 	staticMux    *http.ServeMux
 
+	fileSet []*FileSet
+
 	buildActionRoot string
 	buildAction     string
-	buildFileSet    []FileSet
 
 	watchServeRoot     string
-	watchFileSet       []FileSet
 	watchServeFallback string
 }
 
 func main() {
 	service := new(LiveRebuild)
 
-	listenStatic := flag.String("listenstatic", ":4000", "shell command on build file change")
-	listenLR := flag.String("listenlivereload", ":35729", "shell command on build file change")
 	verbose := flag.Bool("verbose", false, "verbose logging")
+
+	listenStatic := flag.String("listenstatic", ":4000", "static file listen address")
+	listenLR := flag.String("listenlivereload", ":35729", "livereload listener address")
 
 	buildActionRoot := flag.String("buildcommandroot", "", "base directory for build")
 	buildAction := flag.String("buildcommand", "", "command to build")
@@ -135,15 +131,16 @@ func main() {
 
 	service.buildActionRoot = *buildActionRoot
 	service.buildAction = *buildAction
+
 	for _, e := range strings.Split(*buildFiles, " ") {
-		service.buildFileSet = append(service.buildFileSet, New(e))
+		service.fileSet = append(service.fileSet, New("build", e))
 	}
 
 	service.watchServeRoot = *watchServeRoot
 	service.watchServeFallback = *watchServeFallback
 
 	for _, e := range strings.Split(*watchFiles, " ") {
-		service.watchFileSet = append(service.watchFileSet, New(e))
+		service.fileSet = append(service.fileSet, New("watch", e))
 	}
 
 	log.Debugln("starting liverebuild")
