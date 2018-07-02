@@ -18,59 +18,31 @@ type FileSet struct {
 	name    string
 	baseDir string
 	match   string
-	watcher *fsnotify.Watcher
 }
 
-func New(name, pat string) (f *FileSet) {
+func NewFileSet(name, pat string) (f *FileSet) {
 	f = &FileSet{
 		name:    name,
 		baseDir: path.Dir(pat),
 		match:   path.Base(pat),
 	}
 
-	f.watcher, _ = fsnotify.NewWatcher()
-	f.watcher.Add(f.baseDir)
 	return
 }
 
-func (r *LiveRebuild) Run() (err error) {
-	r.lrServer = livereload.New("liverebuild")
-
-	r.lrMux = http.NewServeMux()
-	r.lrMux.HandleFunc("/livereload.js", livereload.LivereloadScript)
-	r.lrMux.Handle("/", r.lrServer)
-
-	// FIXME: call fallback url on 404.
-	//        set caching headers.
-	//        call backend on matched requests.
-	r.staticMux = http.NewServeMux()
-	r.staticMux.Handle("/", http.FileServer(http.Dir(r.watchServeRoot)))
-
-	go func() {
-		var err = http.ListenAndServe(r.listenStatic, r.staticMux)
-		if err != nil {
-			log.Error(err)
+func (r *LiveRebuild) Watch() {
+	for _, f := range r.fileSet {
+		if err := r.watcher.Add(f.baseDir); err != nil {
+			log.Debugf("failed to watch: %s:%s", f.baseDir, err)
 		}
-	}()
-
-	go func() {
-		var err = http.ListenAndServe(r.listenLR, r.lrMux)
-		if err != nil {
-			log.Error(err)
-		}
-	}()
-
-	const interestedEvents = fsnotify.Create | fsnotify.Remove | fsnotify.Rename
+	}
 
 	for {
 		select {
-		case event := <-r.fileSet[0].watcher.Events:
-			if event.Op&interestedEvents > 0 {
-				log.Debugf("reload file %s: %s", event.Name, event.Op)
-				r.lrServer.Reload(event.Name, false)
-			}
-		case e := <-r.fileSet[0].watcher.Errors:
-			log.Debugf("caught error %s", e)
+		case e := <-r.watcher.Events:
+			log.Debugf("event[%s] %s", e.Op, e.Name)
+		case e := <-r.watcher.Errors:
+			log.Debugf("got error %s", e)
 		}
 	}
 }
@@ -82,6 +54,7 @@ type LiveRebuild struct {
 	lrMux        *http.ServeMux
 	staticMux    *http.ServeMux
 
+	watcher *fsnotify.Watcher
 	fileSet []*FileSet
 
 	buildActionRoot string
@@ -89,6 +62,36 @@ type LiveRebuild struct {
 
 	watchServeRoot     string
 	watchServeFallback string
+}
+
+func (r *LiveRebuild) Run() (err error) {
+	r.watcher, err = fsnotify.NewWatcher()
+
+	r.lrServer = livereload.New("liverebuild")
+	r.lrMux = http.NewServeMux()
+	r.lrMux.HandleFunc("/livereload.js", livereload.LivereloadScript)
+	r.lrMux.Handle("/", r.lrServer)
+
+	go func() {
+		var err = http.ListenAndServe(r.listenStatic, r.staticMux)
+		if err != nil {
+			log.Error(err)
+		}
+	}()
+
+	r.staticMux = http.NewServeMux()
+	r.staticMux.Handle("/", http.FileServer(http.Dir(r.watchServeRoot)))
+
+	go func() {
+		var err = http.ListenAndServe(r.listenLR, r.lrMux)
+		if err != nil {
+			log.Error(err)
+		}
+	}()
+
+	r.Watch()
+
+	return
 }
 
 func main() {
@@ -133,14 +136,14 @@ func main() {
 	service.buildAction = *buildAction
 
 	for _, e := range strings.Split(*buildFiles, " ") {
-		service.fileSet = append(service.fileSet, New("build", e))
+		service.fileSet = append(service.fileSet, NewFileSet("build", e))
 	}
 
 	service.watchServeRoot = *watchServeRoot
 	service.watchServeFallback = *watchServeFallback
 
 	for _, e := range strings.Split(*watchFiles, " ") {
-		service.fileSet = append(service.fileSet, New("watch", e))
+		service.fileSet = append(service.fileSet, NewFileSet("watch", e))
 	}
 
 	log.Debugln("starting liverebuild")
