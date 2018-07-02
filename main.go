@@ -1,28 +1,35 @@
 package main
 
 import log "github.com/sirupsen/logrus"
-import "flag"
-import "net/http"
-import "path"
 import "github.com/omeid/go-livereload"
 import "github.com/fsnotify/fsnotify"
 import "github.com/rakyll/globalconf"
+import "flag"
+import "net/http"
+import "path"
 import "strings"
 import "os"
+import "os/exec"
+import "time"
 
 type BuildAction interface {
 	FileChanged(path string) error
 }
 
 type FileSet struct {
-	name    string
+	key     string
 	baseDir string
 	match   string
 }
 
-func NewFileSet(name, pat string) (f *FileSet) {
+func (fs *FileSet) Match(name string) bool {
+	m, _ := path.Match(path.Join(fs.baseDir, fs.match), name)
+	return m
+}
+
+func NewFileSet(key, pat string) (f *FileSet) {
 	f = &FileSet{
-		name:    name,
+		key:     key,
 		baseDir: path.Dir(pat),
 		match:   path.Base(pat),
 	}
@@ -41,8 +48,25 @@ func (r *LiveRebuild) Watch() {
 		select {
 		case e := <-r.watcher.Events:
 			log.Debugf("event[%s] %s", e.Op, e.Name)
+			for _, fs := range r.fileSet {
+				if fs.Match(e.Name) {
+					switch fs.key {
+					case "reload":
+						r.lrServer.Reload(e.Name, false)
+					case "build":
+						go func() {
+							cmd := exec.Command(r.buildAction)
+							op, excode := cmd.CombinedOutput()
+							log.Debugf("build command result: %s", op, excode)
+						}()
+					default:
+						log.Debugf("unknown key: %s", fs.key)
+					}
+				}
+
+			}
 		case e := <-r.watcher.Errors:
-			log.Debugf("got error %s", e)
+			log.Debugf("error %s", e)
 		}
 	}
 }
