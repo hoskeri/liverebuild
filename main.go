@@ -1,101 +1,17 @@
 package main
 
-import log "github.com/sirupsen/logrus"
-import "github.com/omeid/go-livereload"
-import "github.com/fsnotify/fsnotify"
-import "github.com/rakyll/globalconf"
-import "flag"
-import "net/http"
-import "path"
-import "strings"
-import "os"
-import "os/exec"
-import "time"
+import (
+	"flag"
+	"net/http"
+	"os"
+	"strings"
 
-type UpdateFunc func(time.Duration, string)
-
-type Updater interface {
-	Update(time.Duration, string)
-}
-
-type Nothing struct {
-	Updater
-}
-
-func (u *Nothing) Update(ts time.Duration, name string) {
-	return
-}
-
-type RunCommand struct {
-	cmd  string
-	args []string
-}
-
-func (u *RunCommand) Update(ts time.Duration, name string) {
-	cmd := exec.Command(u.cmd, u.args...)
-	cmd.Run()
-}
-
-type LiveReload struct {
-	Updater
-	lr *livereload.Server
-}
-
-type ChildProcess struct {
-	Updater
-	oldProc *exec.Cmd
-	proc    *exec.Cmd
-}
-
-func (u *ChildProcess) Update(ts time.Duration, name string) {
-}
-
-type FileSet struct {
-	uf      Updater
-	last    time.Time
-	baseDir string
-	match   string
-}
-
-func (fs *FileSet) Match(name string) bool {
-	m, _ := path.Match(path.Join(fs.baseDir, fs.match), name)
-	return m
-}
-
-func (r *LiveRebuild) Add(pat string, fn Updater) {
-	f := &FileSet{
-		uf:      fn,
-		baseDir: path.Dir(pat),
-		match:   path.Base(pat),
-	}
-
-	r.fileSet = append(r.fileSet, f)
-
-	return
-}
-
-func (r *LiveRebuild) Watch() {
-	for _, f := range r.fileSet {
-		if err := r.watcher.Add(f.baseDir); err != nil {
-			log.Debugf("failed to watch: %s:%s", f.baseDir, err)
-		}
-	}
-
-	for {
-		select {
-		case e := <-r.watcher.Events:
-			log.Debugf("event[%s] %s", e.Op, e.Name)
-			for _, fs := range r.fileSet {
-				if fs.Match(e.Name) {
-					fs.uf.Update(time.Since(fs.last), e.Name)
-					fs.last = time.Now()
-				}
-			}
-		case e := <-r.watcher.Errors:
-			log.Debugf("error %s", e)
-		}
-	}
-}
+	"github.com/fsnotify/fsnotify"
+	"github.com/hoskeri/liverebuild/updater"
+	"github.com/omeid/go-livereload"
+	"github.com/rakyll/globalconf"
+	log "github.com/sirupsen/logrus"
+)
 
 type LiveRebuild struct {
 	listenStatic string
@@ -177,7 +93,7 @@ func main() {
 		log.SetLevel(log.DebugLevel)
 	}
 
-	var nothing = new(Nothing)
+	var nothing = new(updater.Nothing)
 
 	flag.VisitAll(func(f *flag.Flag) { log.Debugln(f.Name, "->", f.Value) })
 
