@@ -18,12 +18,40 @@ type Updater interface {
 	Update(time.Duration, string)
 }
 
-func (u UpdateFunc) Update(ts time.Duration, name string) {
-	u(ts, name)
+type Nothing struct {
+	Updater
+}
+
+func (u *Nothing) Update(ts time.Duration, name string) {
+	return
+}
+
+type RunCommand struct {
+	cmd  string
+	args []string
+}
+
+func (u *RunCommand) Update(ts time.Duration, name string) {
+	cmd := exec.Command(u.cmd, u.args...)
+	cmd.Run()
+}
+
+type LiveReload struct {
+	Updater
+	lr *livereload.Server
+}
+
+type ChildProcess struct {
+	Updater
+	oldProc *exec.Cmd
+	proc    *exec.Cmd
+}
+
+func (u *ChildProcess) Update(ts time.Duration, name string) {
 }
 
 type FileSet struct {
-	uf      UpdateFunc
+	uf      Updater
 	last    time.Time
 	baseDir string
 	match   string
@@ -34,7 +62,7 @@ func (fs *FileSet) Match(name string) bool {
 	return m
 }
 
-func (r *LiveRebuild) Add(pat string, fn UpdateFunc) {
+func (r *LiveRebuild) Add(pat string, fn Updater) {
 	f := &FileSet{
 		uf:      fn,
 		baseDir: path.Dir(pat),
@@ -59,7 +87,7 @@ func (r *LiveRebuild) Watch() {
 			log.Debugf("event[%s] %s", e.Op, e.Name)
 			for _, fs := range r.fileSet {
 				if fs.Match(e.Name) {
-					fs.uf(time.Since(fs.last), e.Name)
+					fs.uf.Update(time.Since(fs.last), e.Name)
 					fs.last = time.Now()
 				}
 			}
@@ -149,6 +177,8 @@ func main() {
 		log.SetLevel(log.DebugLevel)
 	}
 
+	var nothing = new(Nothing)
+
 	flag.VisitAll(func(f *flag.Flag) { log.Debugln(f.Name, "->", f.Value) })
 
 	service.listenStatic = *listenStatic
@@ -158,14 +188,14 @@ func main() {
 	service.buildAction = *buildAction
 
 	for _, e := range strings.Split(*buildFiles, " ") {
-		service.Add(e)
+		service.Add(e, nothing)
 	}
 
 	service.watchServeRoot = *watchServeRoot
 	service.watchServeFallback = *watchServeFallback
 
 	for _, e := range strings.Split(*watchFiles, " ") {
-		service.Add(e)
+		service.Add(e, nothing)
 	}
 
 	log.Debugln("starting liverebuild")
