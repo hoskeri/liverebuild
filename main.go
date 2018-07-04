@@ -12,12 +12,19 @@ import "os"
 import "os/exec"
 import "time"
 
-type BuildAction interface {
-	FileChanged(path string) error
+type UpdateFunc func(time.Duration, string)
+
+type Updater interface {
+	Update(time.Duration, string)
+}
+
+func (u UpdateFunc) Update(ts time.Duration, name string) {
+	u(ts, name)
 }
 
 type FileSet struct {
-	key     string
+	uf      UpdateFunc
+	last    time.Time
 	baseDir string
 	match   string
 }
@@ -27,12 +34,14 @@ func (fs *FileSet) Match(name string) bool {
 	return m
 }
 
-func NewFileSet(key, pat string) (f *FileSet) {
-	f = &FileSet{
-		key:     key,
+func (r *LiveRebuild) Add(pat string, fn UpdateFunc) {
+	f := &FileSet{
+		uf:      fn,
 		baseDir: path.Dir(pat),
 		match:   path.Base(pat),
 	}
+
+	r.fileSet = append(r.fileSet, f)
 
 	return
 }
@@ -50,20 +59,9 @@ func (r *LiveRebuild) Watch() {
 			log.Debugf("event[%s] %s", e.Op, e.Name)
 			for _, fs := range r.fileSet {
 				if fs.Match(e.Name) {
-					switch fs.key {
-					case "reload":
-						r.lrServer.Reload(e.Name, false)
-					case "build":
-						go func() {
-							cmd := exec.Command(r.buildAction)
-							op, excode := cmd.CombinedOutput()
-							log.Debugf("build command result: %s", op, excode)
-						}()
-					default:
-						log.Debugf("unknown key: %s", fs.key)
-					}
+					fs.uf(time.Since(fs.last), e.Name)
+					fs.last = time.Now()
 				}
-
 			}
 		case e := <-r.watcher.Errors:
 			log.Debugf("error %s", e)
@@ -160,14 +158,14 @@ func main() {
 	service.buildAction = *buildAction
 
 	for _, e := range strings.Split(*buildFiles, " ") {
-		service.fileSet = append(service.fileSet, NewFileSet("build", e))
+		service.Add(e)
 	}
 
 	service.watchServeRoot = *watchServeRoot
 	service.watchServeFallback = *watchServeFallback
 
 	for _, e := range strings.Split(*watchFiles, " ") {
-		service.fileSet = append(service.fileSet, NewFileSet("watch", e))
+		service.Add(e)
 	}
 
 	log.Debugln("starting liverebuild")
