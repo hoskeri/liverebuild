@@ -2,6 +2,7 @@ package updater
 
 import (
 	livereload "github.com/omeid/go-livereload"
+	"log"
 	"net/http"
 	"os/exec"
 	"time"
@@ -11,8 +12,6 @@ type UpdateFunc func(time.Duration, string)
 
 type Updater interface {
 	Update(time.Duration, string)
-	Start() error
-	Stop() error
 }
 
 type Nothing struct {
@@ -28,9 +27,18 @@ type RunCommand struct {
 	args []string
 }
 
+func NewRunCommand(cmd string, args ...string) (*RunCommand, error) {
+	return &RunCommand{
+		cmd:  cmd,
+		args: args,
+	}, nil
+}
+
 func (u *RunCommand) Update(ts time.Duration, name string) {
 	cmd := exec.Command(u.cmd, u.args...)
-	cmd.Run()
+	if op, err := cmd.CombinedOutput(); err != nil {
+		log.Printf("%s", string(op))
+	}
 }
 
 type LiveReload struct {
@@ -58,9 +66,24 @@ func NewLiveReload(address string) (*LiveReload, error) {
 
 type ChildProcess struct {
 	Updater
-	oldProc *exec.Cmd
-	proc    *exec.Cmd
+	cmd  string
+	args []string
+	proc *exec.Cmd
+}
+
+func NewChildProcess(cmd string, args ...string) (*ChildProcess, error) {
+	return &ChildProcess{
+		cmd:  cmd,
+		args: args,
+	}, nil
 }
 
 func (u *ChildProcess) Update(ts time.Duration, name string) {
+	if u.proc != nil && u.proc.Process != nil {
+		u.proc.Process.Kill()
+		log.Printf("child process exited: %+v", u.proc.Wait())
+	}
+
+	u.proc = exec.Command(u.cmd, u.args...)
+	u.proc.Start()
 }

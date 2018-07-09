@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/hoskeri/liverebuild/updater"
-	log "github.com/sirupsen/logrus"
 	"path"
 	"time"
 )

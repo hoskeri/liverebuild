@@ -7,17 +7,16 @@ import (
 	"strings"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/hoskeri/liverebuild/llog"
 	"github.com/hoskeri/liverebuild/updater"
-	"github.com/omeid/go-livereload"
 	"github.com/rakyll/globalconf"
-	log "github.com/sirupsen/logrus"
 )
+
+var log = new(llog.Logger)
 
 type LiveRebuild struct {
 	listenStatic string
 	listenLR     string
-	lrServer     *livereload.Server
-	lrMux        *http.ServeMux
 	staticMux    *http.ServeMux
 
 	watcher *fsnotify.Watcher
@@ -33,11 +32,6 @@ type LiveRebuild struct {
 func (r *LiveRebuild) Run() (err error) {
 	r.watcher, err = fsnotify.NewWatcher()
 
-	r.lrServer = livereload.New("liverebuild")
-	r.lrMux = http.NewServeMux()
-	r.lrMux.HandleFunc("/livereload.js", livereload.LivereloadScript)
-	r.lrMux.Handle("/", r.lrServer)
-
 	go func() {
 		var err = http.ListenAndServe(r.listenStatic, r.staticMux)
 		if err != nil {
@@ -48,13 +42,6 @@ func (r *LiveRebuild) Run() (err error) {
 	r.staticMux = http.NewServeMux()
 	r.staticMux.Handle("/", http.FileServer(http.Dir(r.watchServeRoot)))
 
-	go func() {
-		var err = http.ListenAndServe(r.listenLR, r.lrMux)
-		if err != nil {
-			log.Error(err)
-		}
-	}()
-
 	r.Watch()
 
 	return
@@ -62,8 +49,6 @@ func (r *LiveRebuild) Run() (err error) {
 
 func main() {
 	service := new(LiveRebuild)
-
-	verbose := flag.Bool("verbose", false, "verbose logging")
 
 	listenStatic := flag.String("listenstatic", ":4000", "static file listen address")
 	listenLR := flag.String("listenlivereload", ":35729", "livereload listener address")
@@ -89,13 +74,9 @@ func main() {
 
 	conf.ParseAll()
 
-	if *verbose {
-		log.SetLevel(log.DebugLevel)
-	}
-
 	var nothing = new(updater.Nothing)
 
-	flag.VisitAll(func(f *flag.Flag) { log.Debugln(f.Name, "->", f.Value) })
+	flag.VisitAll(func(f *flag.Flag) { log.Debugln(f.Name, " -> ", f.Value) })
 
 	service.listenStatic = *listenStatic
 	service.listenLR = *listenLR
