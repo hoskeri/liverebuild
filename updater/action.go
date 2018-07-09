@@ -1,16 +1,18 @@
 package updater
 
 import (
+	livereload "github.com/omeid/go-livereload"
+	"net/http"
 	"os/exec"
 	"time"
-
-	livereload "github.com/omeid/go-livereload"
 )
 
 type UpdateFunc func(time.Duration, string)
 
 type Updater interface {
 	Update(time.Duration, string)
+	Start() error
+	Stop() error
 }
 
 type Nothing struct {
@@ -33,7 +35,25 @@ func (u *RunCommand) Update(ts time.Duration, name string) {
 
 type LiveReload struct {
 	Updater
-	lr *livereload.Server
+	lr     *livereload.Server
+	server *http.Server
+}
+
+func NewLiveReload(address string) (*LiveReload, error) {
+	mux := http.NewServeMux()
+
+	lr := LiveReload{
+		lr: livereload.New("liverebuild"),
+		server: &http.Server{
+			Addr:    address,
+			Handler: mux,
+		},
+	}
+
+	mux.HandleFunc("/livereload.js", livereload.LivereloadScript)
+	mux.Handle("/", lr.lr)
+
+	return &lr, lr.server.ListenAndServe()
 }
 
 type ChildProcess struct {
