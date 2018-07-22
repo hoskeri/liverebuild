@@ -95,10 +95,9 @@ type StaticServer struct {
 
 func NewStaticServer(address, dir, fallback string) (*StaticServer, error) {
 	mux := http.NewServeMux()
-	fs := http.FileServer(http.Dir(dir))
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fs.ServeHTTP(w, r)
+
 	})
 
 	s := &http.Server{

@@ -1,6 +1,7 @@
 package main
 
 import (
+	log "github.com/hoskeri/liverebuild/llog"
 	"github.com/hoskeri/liverebuild/updater"
 	"path"
 	"time"

@@ -7,12 +7,10 @@ import (
 	"strings"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/hoskeri/liverebuild/llog"
+	log "github.com/hoskeri/liverebuild/llog"
 	"github.com/hoskeri/liverebuild/updater"
 	"github.com/rakyll/globalconf"
 )
-
-var log = new(llog.Logger)
 
 type LiveRebuild struct {
 	listenStatic string
@@ -76,7 +74,7 @@ func main() {
 
 	var nothing = new(updater.Nothing)
 
-	flag.VisitAll(func(f *flag.Flag) { log.Debugln(f.Name, " -> ", f.Value) })
+	flag.VisitAll(func(f *flag.Flag) { log.Debug(f.Name, " -> ", f.Value) })
 
 	service.listenStatic = *listenStatic
 	service.listenLR = *listenLR
@@ -95,7 +93,7 @@ func main() {
 		service.Add(e, nothing)
 	}
 
-	log.Debugln("starting liverebuild")
+	log.Debug("starting liverebuild")
 	err = service.Run()
 	if err != nil {
 		log.Fatalf("error: %s", err)
