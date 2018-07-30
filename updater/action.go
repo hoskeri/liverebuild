@@ -1,8 +1,8 @@
 package updater
 
 import (
+	log "github.com/hoskeri/liverebuild/llog"
 	livereload "github.com/omeid/go-livereload"
-	"log"
 	"net/http"
 	"os/exec"
 	"time"
@@ -37,7 +37,7 @@ func NewRunCommand(cmd string, args ...string) (*RunCommand, error) {
 func (u *RunCommand) Update(ts time.Duration, name string) {
 	cmd := exec.Command(u.cmd, u.args...)
 	if op, err := cmd.CombinedOutput(); err != nil {
-		log.Printf("%s", string(op))
+		log.Debug("%s", string(op))
 	}
 }
 
@@ -81,7 +81,7 @@ func NewChildProcess(cmd string, args ...string) (*ChildProcess, error) {
 func (u *ChildProcess) Update(ts time.Duration, name string) {
 	if u.proc != nil && u.proc.Process != nil {
 		u.proc.Process.Kill()
-		log.Printf("child process exited: %+v", u.proc.Wait())
+		log.Debug("child process exited: %+v", u.proc.Wait())
 	}
 
 	u.proc = exec.Command(u.cmd, u.args...)
@@ -95,7 +95,6 @@ type StaticServer struct {
 
 func NewStaticServer(address, dir, fallback string) (*StaticServer, error) {
 	mux := http.NewServeMux()
-
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 
 	})
