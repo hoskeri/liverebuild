@@ -51,17 +51,18 @@ type config struct {
 
 var Config = config{}
 
-func parseConfig(cf string) error {
-	_, err := toml.DecodeFile(cf, &Config)
-	return err
+func parseConfig(cf string) {
+	if _, err := toml.DecodeFile(cf, &Config); err != nil {
+		log.Fatalf("failed to parse .liverebuildrc: %+v", err)
+	} else {
+		if Config.Verbose {
+			log.Debug("parsed config: %+v", Config)
+		}
+	}
 }
 
 func main() {
-	if err := parseConfig(".liverebuildrc"); err != nil {
-		log.Fatalf("failed to parse .liverebuildrc: %+v", err)
-	} else {
-		log.Debugf("parsed config: %+v", Config)
-	}
+	parseConfig(".liverebuildrc")
 
 	service := new(LiveRebuild)
 
