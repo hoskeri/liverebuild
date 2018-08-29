@@ -23,11 +23,13 @@ func (r *LiveRebuild) Run() (err error) {
 
 type staticAction struct {
 	Address  string
+	Root     string
 	Paths    []string
 	Fallback string
 }
 
 type lrAction struct {
+	Paths   []string
 	Address string
 }
 
@@ -53,7 +55,7 @@ var Config = config{}
 
 func parseConfig(cf string) {
 	if _, err := toml.DecodeFile(cf, &Config); err != nil {
-		log.Fatalf("failed to parse .liverebuildrc: %+v", err)
+		log.Fatalf("config error: %+v", err)
 	} else {
 		if Config.Verbose {
 			log.Debug("parsed config: %+v", Config)
@@ -61,12 +63,43 @@ func parseConfig(cf string) {
 	}
 }
 
+type updaters struct {
+	static *updater.StaticServer
+	lr     *updater.LiveReload
+	daemon *updater.ChildProcess
+	cmd    *updater.RunCommand
+}
+
 func main() {
 	parseConfig(".liverebuildrc")
 
 	service := new(LiveRebuild)
+	up := new(updaters)
+	var err error
 
-	var _ = updater.Nothing{}
+	if len(Config.Static.Paths) > 0 {
+		if up.static, err = updater.NewStaticServer(
+			Config.Static.Address,
+			Config.Static.Root,
+			Config.Static.Fallback); err != nil {
+			log.Fatalf("failed to initialize static server: %s", err)
+		} else {
+			for _, p := range Config.Static.Paths {
+				service.Add(p, up.static)
+			}
+		}
+	}
+
+	if len(Config.Lr.Paths) > 0 {
+		if up.lr, err = updater.NewLiveReload(
+			Config.Lr.Address); err != nil {
+			log.Fatalf("failed to initialize static server: %s", err)
+		} else {
+			for _, p := range Config.Lr.Paths {
+				service.Add(p, up.lr)
+			}
+		}
+	}
 
 	if err := service.Run(); err != nil {
 		log.Fatalf("error: %s", err)

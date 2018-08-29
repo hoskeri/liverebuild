@@ -4,7 +4,9 @@ import (
 	log "github.com/hoskeri/liverebuild/llog"
 	livereload "github.com/omeid/go-livereload"
 	"net/http"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"time"
 )
 
@@ -96,7 +98,12 @@ type StaticServer struct {
 func NewStaticServer(address, dir, fallback string) (*StaticServer, error) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-
+		var lp = filepath.Join(dir, filepath.Clean(r.URL.EscapedPath()))
+		if _, err := os.Stat(lp); err == nil {
+			http.ServeFile(w, r, lp)
+		} else {
+			http.ServeFile(w, r, filepath.Join(dir, fallback))
+		}
 	})
 
 	s := &http.Server{
