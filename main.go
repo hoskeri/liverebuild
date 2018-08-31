@@ -101,6 +101,26 @@ func main() {
 		}
 	}
 
+	if len(Config.Build.Paths) > 0 {
+		if up.cmd, err = updater.NewRunCommand(Config.Build.Cmd); err != nil {
+			log.Fatalf("failed to initialize static server: %s", err)
+		} else {
+			for _, p := range Config.Build.Paths {
+				service.Add(p, up.cmd)
+			}
+		}
+	}
+
+	if len(Config.Daemon.Paths) > 0 {
+		if up.daemon, err = updater.NewChildProcess(Config.Daemon.Cmd); err != nil {
+			log.Fatalf("failed to initialize static server: %s", err)
+		} else {
+			for _, p := range Config.Daemon.Paths {
+				service.Add(p, up.daemon)
+			}
+		}
+	}
+
 	if err := service.Run(); err != nil {
 		log.Fatalf("error: %s", err)
 		os.Exit(1)
