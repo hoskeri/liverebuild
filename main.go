@@ -93,7 +93,7 @@ func main() {
 	if len(Config.Lr.Paths) > 0 {
 		if up.lr, err = updater.NewLiveReload(
 			Config.Lr.Address); err != nil {
-			log.Fatalf("failed to initialize static server: %s", err)
+			log.Fatalf("failed to initialize lr server: %s", err)
 		} else {
 			for _, p := range Config.Lr.Paths {
 				service.Add(p, up.lr)
@@ -103,7 +103,7 @@ func main() {
 
 	if len(Config.Build.Paths) > 0 {
 		if up.cmd, err = updater.NewRunCommand(Config.Build.Cmd); err != nil {
-			log.Fatalf("failed to initialize static server: %s", err)
+			log.Fatalf("failed to initialize build server: %s", err)
 		} else {
 			for _, p := range Config.Build.Paths {
 				service.Add(p, up.cmd)
@@ -113,7 +113,7 @@ func main() {
 
 	if len(Config.Daemon.Paths) > 0 {
 		if up.daemon, err = updater.NewChildProcess(Config.Daemon.Cmd); err != nil {
-			log.Fatalf("failed to initialize static server: %s", err)
+			log.Fatalf("failed to initialize daemon server: %s", err)
 		} else {
 			for _, p := range Config.Daemon.Paths {
 				service.Add(p, up.daemon)

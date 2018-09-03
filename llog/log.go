@@ -8,7 +8,7 @@ const lWarn = Level("[warn] ")
 const lDebug = Level("[debug] ")
 const lFatal = Level("[fatal] ")
 const lError = Level("[error] ")
-const lInfo = Level("[info]")
+const lInfo = Level("[info] ")
 
 func logLn(lvl Level, v ...interface{}) {
 	stdlog.Print(append([]interface{}{string(lvl)}, v...)...)

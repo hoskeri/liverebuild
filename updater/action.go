@@ -63,7 +63,9 @@ func NewLiveReload(address string) (*LiveReload, error) {
 	mux.HandleFunc("/livereload.js", livereload.LivereloadScript)
 	mux.Handle("/", lr.lr)
 
-	return &lr, lr.server.ListenAndServe()
+	go func() { lr.server.ListenAndServe() }()
+
+	return &lr, nil
 }
 
 type ChildProcess struct {
@@ -95,6 +97,10 @@ type StaticServer struct {
 	server *http.Server
 }
 
+func Update(ts time.Duration, path string) {
+	return
+}
+
 func NewStaticServer(address, dir, fallback string) (*StaticServer, error) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -111,7 +117,9 @@ func NewStaticServer(address, dir, fallback string) (*StaticServer, error) {
 		Handler: mux,
 	}
 
+	go func() { s.ListenAndServe() }()
+
 	return &StaticServer{
 		server: s,
-	}, s.ListenAndServe()
+	}, nil
 }
