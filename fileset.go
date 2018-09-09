@@ -41,9 +41,9 @@ func (r *LiveRebuild) Watch() {
 	for {
 		select {
 		case e := <-r.watcher.Events:
-			log.Debugf("event[%s] %s", e.Op, e.Name)
 			for _, fs := range r.fileSet {
 				if fs.Match(e.Name) {
+					log.Debugf("update[%s] %s", fs.uf.Name(), e.Name)
 					fs.uf.Update(time.Since(fs.last), e.Name)
 					fs.last = time.Now()
 				}

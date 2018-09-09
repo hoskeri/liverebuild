@@ -103,7 +103,7 @@ func main() {
 
 	if len(Config.Build.Paths) > 0 {
 		if up.cmd, err = updater.NewRunCommand(Config.Build.Cmd); err != nil {
-			log.Fatalf("failed to initialize build server: %s", err)
+			log.Fatalf("failed to initialize build : %s", err)
 		} else {
 			for _, p := range Config.Build.Paths {
 				service.Add(p, up.cmd)
@@ -113,7 +113,7 @@ func main() {
 
 	if len(Config.Daemon.Paths) > 0 {
 		if up.daemon, err = updater.NewChildProcess(Config.Daemon.Cmd); err != nil {
-			log.Fatalf("failed to initialize daemon server: %s", err)
+			log.Fatalf("failed to initialize child process: %s", err)
 		} else {
 			for _, p := range Config.Daemon.Paths {
 				service.Add(p, up.daemon)
@@ -121,8 +121,10 @@ func main() {
 		}
 	}
 
+	log.Debug("running")
 	if err := service.Run(); err != nil {
 		log.Fatalf("error: %s", err)
 		os.Exit(1)
+	} else {
 	}
 }

@@ -10,24 +10,19 @@ import (
 	"time"
 )
 
-type UpdateFunc func(time.Duration, string)
-
 type Updater interface {
 	Update(time.Duration, string)
-}
-
-type Nothing struct {
-	Updater
-}
-
-func (u *Nothing) Update(ts time.Duration, name string) {
-	return
+	Name() string
 }
 
 type RunCommand struct {
 	cmd  string
 	args []string
 }
+
+var _ Updater = (*RunCommand)(nil)
+
+func (r *RunCommand) Name() string { return "runc" }
 
 func NewRunCommand(cmd string, args ...string) (*RunCommand, error) {
 	return &RunCommand{
@@ -44,10 +39,13 @@ func (u *RunCommand) Update(ts time.Duration, name string) {
 }
 
 type LiveReload struct {
-	Updater
 	lr     *livereload.Server
 	server *http.Server
 }
+
+var _ Updater = (*LiveReload)(nil)
+
+func (l *LiveReload) Name() string { return "livereload" }
 
 func NewLiveReload(address string) (*LiveReload, error) {
 	mux := http.NewServeMux()
@@ -68,12 +66,20 @@ func NewLiveReload(address string) (*LiveReload, error) {
 	return &lr, nil
 }
 
+func (l *LiveReload) Update(ts time.Duration, name string) {
+	l.lr.Reload(name, false)
+}
+
 type ChildProcess struct {
 	Updater
 	cmd  string
 	args []string
 	proc *exec.Cmd
 }
+
+var _ Updater = (*ChildProcess)(nil)
+
+func (c *ChildProcess) Name() string { return "childprocess" }
 
 func NewChildProcess(cmd string, args ...string) (*ChildProcess, error) {
 	return &ChildProcess{
@@ -93,11 +99,14 @@ func (u *ChildProcess) Update(ts time.Duration, name string) {
 }
 
 type StaticServer struct {
-	Updater
 	server *http.Server
 }
 
-func Update(ts time.Duration, path string) {
+var _ Updater = (*StaticServer)(nil)
+
+func (s *StaticServer) Name() string { return "static" }
+
+func (s *StaticServer) Update(ts time.Duration, path string) {
 	return
 }
 
