@@ -73,6 +73,10 @@ type updaters struct {
 func main() {
 	parseConfig(".liverebuildrc")
 
+	if Config.Verbose {
+		log.Verbose = true
+	}
+
 	service := new(LiveRebuild)
 	up := new(updaters)
 	var err error

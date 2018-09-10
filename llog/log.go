@@ -10,11 +10,19 @@ const lFatal = Level("[fatal] ")
 const lError = Level("[error] ")
 const lInfo = Level("[info] ")
 
+var Verbose = false
+
 func logLn(lvl Level, v ...interface{}) {
+	if lvl == lDebug && !Verbose {
+		return
+	}
 	stdlog.Print(append([]interface{}{string(lvl)}, v...)...)
 }
 
 func logF(lvl Level, fmt string, v ...interface{}) {
+	if lvl == lDebug && !Verbose {
+		return
+	}
 	stdlog.Printf(string(lvl)+" "+fmt, v...)
 }
 
