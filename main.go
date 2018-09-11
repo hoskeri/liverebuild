@@ -35,12 +35,12 @@ type lrAction struct {
 
 type buildAction struct {
 	Paths []string
-	Cmd   string
+	Cmd   []string
 }
 
 type daemonAction struct {
 	Paths []string
-	Cmd   string
+	Cmd   []string
 }
 
 type config struct {
@@ -106,7 +106,7 @@ func main() {
 	}
 
 	if len(Config.Build.Paths) > 0 {
-		if up.cmd, err = updater.NewRunCommand(Config.Build.Cmd); err != nil {
+		if up.cmd, err = updater.NewRunCommand(Config.Build.Cmd[0], Config.Build.Cmd[1:]...); err != nil {
 			log.Fatalf("failed to initialize build : %s", err)
 		} else {
 			for _, p := range Config.Build.Paths {
@@ -116,7 +116,7 @@ func main() {
 	}
 
 	if len(Config.Daemon.Paths) > 0 {
-		if up.daemon, err = updater.NewChildProcess(Config.Daemon.Cmd); err != nil {
+		if up.daemon, err = updater.NewChildProcess(Config.Daemon.Cmd[0], Config.Build.Cmd[1:]...); err != nil {
 			log.Fatalf("failed to initialize child process: %s", err)
 		} else {
 			for _, p := range Config.Daemon.Paths {
