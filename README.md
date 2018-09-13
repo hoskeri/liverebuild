@@ -4,21 +4,24 @@
 
 Example Config:
 
-```ini
+```toml
+verbose = false
 
-# watch files and build.
-buildCommandRoot = ./src
-buildFiles = *.elm api/*.py # paths are relative to buildCommandRoot
-buildCommand = "make"
+[static]
+address = ":4000"
+root = "./build/static"
+paths = [ "./build/static/*" ]
+fallback = "index.html"
 
-# live reload patterns
-watchServeRoot = ./dist/static # paths are relative to watchServeRoot
-watchServeFiles = *.js *.css
-watchFallback = index.html # render on 404
+[lr]
+address = ":37529"
+paths = [ "./build/static/*" ]
 
-# customize ports and logging
-listenLivereload = :37529
-listenStatic = :4000
-verbose = true
+[build]
+paths = [ "src/*.elm", "src/*.tmpl"]
+cmd = [ "make" ]
 
+[daemon]
+paths = [ "./build/server/*" ]
+cmd = [ "sleep", "1d" ]
 ```
