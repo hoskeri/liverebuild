@@ -1,8 +1,6 @@
 package main
 
 import (
-	"os"
-
 	"github.com/BurntSushi/toml"
 	"github.com/fsnotify/fsnotify"
 	log "github.com/hoskeri/liverebuild/llog"
@@ -116,7 +114,7 @@ func main() {
 	}
 
 	if len(Config.Daemon.Paths) > 0 {
-		if up.daemon, err = updater.NewChildProcess(Config.Daemon.Cmd[0], Config.Build.Cmd[1:]...); err != nil {
+		if up.daemon, err = updater.NewChildProcess(Config.Daemon.Cmd[0], Config.Daemon.Cmd[1:]...); err != nil {
 			log.Fatalf("failed to initialize child process: %s", err)
 		} else {
 			for _, p := range Config.Daemon.Paths {
@@ -128,7 +126,5 @@ func main() {
 	log.Debug("running")
 	if err := service.Run(); err != nil {
 		log.Fatalf("error: %s", err)
-		os.Exit(1)
-	} else {
 	}
 }
