@@ -32,6 +32,15 @@ func Debugf(f string, v ...interface{}) { logF(lDbug, f, v...) }
 func Fatal(v ...interface{})            { stdlog.Fatal(v...) }
 func Fatalf(f string, v ...interface{}) { stdlog.Fatalf(f, v...) }
 
+var Blackhole *stdlog.Logger
+
+type blacklog int
+
+func (b blacklog) Write(p []byte) (n int, err error) {
+	return len(p), nil
+}
+
 func init() {
+	Blackhole = stdlog.New(new(blacklog), "", 0)
 	stdlog.SetFlags(0)
 }

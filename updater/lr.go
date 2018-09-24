@@ -1,6 +1,7 @@
 package updater
 
 import (
+	log "github.com/hoskeri/liverebuild/llog"
 	livereload "github.com/omeid/go-livereload"
 	"net/http"
 	"time"
@@ -36,4 +37,8 @@ func NewLiveReload(address string) (*LiveReload, error) {
 
 func (l *LiveReload) Update(ts time.Duration, name string) {
 	l.lr.Reload(name, false)
+}
+
+func init() {
+	livereload.Log = log.Blackhole
 }
