@@ -9,7 +9,6 @@ import (
 
 type FileSet struct {
 	uf      updater.Updater
-	last    time.Time
 	baseDir string
 	match   string
 }
@@ -31,7 +30,16 @@ func (r *LiveRebuild) Add(pat string, fn updater.Updater) {
 	return
 }
 
+const BatchDuration = 750 * time.Millisecond
+
 func (r *LiveRebuild) Watch() {
+	var ticker = time.NewTicker(BatchDuration)
+
+	/* Group updates by updater, and dispatch them all at once */
+	type p_u []string
+	type p_u_map map[updater.Updater]p_u
+	var pending = make(p_u_map)
+
 	for _, f := range r.fileSet {
 		if err := r.watcher.Add(f.baseDir); err != nil {
 			log.Debugf("failed to watch: %s:%s", f.baseDir, err)
@@ -43,13 +51,23 @@ func (r *LiveRebuild) Watch() {
 		case e := <-r.watcher.Events:
 			for _, fs := range r.fileSet {
 				if fs.Match(e.Name) {
-					log.Debugf("update[%s] %s", fs.uf.Name(), e.Name)
-					fs.uf.Update(time.Since(fs.last), e.Name)
-					fs.last = time.Now()
+					log.Debugf("enqueue[%s] %s", fs.uf.Name(), e.Name)
+					if p_u, ok := pending[fs.uf]; ok {
+						pending[fs.uf] = append(p_u, e.Name)
+					} else {
+						pending[fs.uf] = []string{e.Name}
+					}
 				}
 			}
+
 		case e := <-r.watcher.Errors:
 			log.Debugf("error %s", e)
+
+		case _ = <-ticker.C:
+			for u_f, p_u := range pending {
+				u_f.Update(BatchDuration, p_u[0])
+			}
+			pending = make(p_u_map)
 		}
 	}
 }

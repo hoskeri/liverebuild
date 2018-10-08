@@ -5,6 +5,6 @@ import (
 )
 
 type Updater interface {
-	Update(time.Duration, string)
+	Update(time.Duration, ...string)
 	Name() string
 }

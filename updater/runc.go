@@ -22,7 +22,7 @@ func NewRunCommand(cmd string, args ...string) (*RunCommand, error) {
 	}, nil
 }
 
-func (u *RunCommand) Update(ts time.Duration, name string) {
+func (u *RunCommand) Update(ts time.Duration, name ...string) {
 	cmd := exec.Command(u.cmd, u.args...)
 	if op, err := cmd.CombinedOutput(); err != nil {
 		log.Debug("%s", string(op))

@@ -35,8 +35,10 @@ func NewLiveReload(address string) (*LiveReload, error) {
 	return &lr, nil
 }
 
-func (l *LiveReload) Update(ts time.Duration, name string) {
-	l.lr.Reload(name, false)
+func (l *LiveReload) Update(ts time.Duration, name ...string) {
+	for _, e := range name {
+		l.lr.Reload(e, false)
+	}
 }
 
 func init() {

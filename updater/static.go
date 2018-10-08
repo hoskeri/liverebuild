@@ -15,7 +15,7 @@ var _ Updater = (*StaticServer)(nil)
 
 func (s *StaticServer) Name() string { return "static" }
 
-func (s *StaticServer) Update(ts time.Duration, path string) {
+func (s *StaticServer) Update(ts time.Duration, path ...string) {
 	return
 }
 

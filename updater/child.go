@@ -24,7 +24,7 @@ func NewChildProcess(cmd string, args ...string) (*ChildProcess, error) {
 	}, nil
 }
 
-func (u *ChildProcess) Update(ts time.Duration, name string) {
+func (u *ChildProcess) Update(ts time.Duration, name ...string) {
 	if u.proc != nil && u.proc.Process != nil {
 		u.proc.Process.Kill()
 		log.Debug("child process exited: %+v", u.proc.Wait())
