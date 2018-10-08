@@ -65,7 +65,9 @@ func (r *LiveRebuild) Watch() {
 
 		case _ = <-ticker.C:
 			for u_f, p_u := range pending {
-				u_f.Update(BatchDuration, p_u[0])
+				log.Debugf("update[%s]: %q", u_f.Name(), p_u)
+				// TODO: deduplicate the p_u list
+				u_f.Update(BatchDuration, p_u...)
 			}
 			pending = make(p_u_map)
 		}
