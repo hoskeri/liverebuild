@@ -36,8 +36,8 @@ func (r *LiveRebuild) Watch() {
 	var ticker = time.NewTicker(BatchDuration)
 
 	/* Group updates by updater, and dispatch them all at once */
-	type p_u []string
-	type p_u_map map[updater.Updater]p_u
+	type p_u_t map[string]bool
+	type p_u_map map[updater.Updater]p_u_t
 	var pending = make(p_u_map)
 
 	for _, f := range r.fileSet {
@@ -52,10 +52,11 @@ func (r *LiveRebuild) Watch() {
 			for _, fs := range r.fileSet {
 				if fs.Match(e.Name) {
 					log.Debugf("enqueue[%s] %s", fs.uf.Name(), e.Name)
-					if p_u, ok := pending[fs.uf]; ok {
-						pending[fs.uf] = append(p_u, e.Name)
+					if _, ok := pending[fs.uf]; ok {
+						pending[fs.uf][e.Name] = true
 					} else {
-						pending[fs.uf] = []string{e.Name}
+						pending[fs.uf] = make(p_u_t)
+						pending[fs.uf][e.Name] = true
 					}
 				}
 			}
@@ -65,9 +66,12 @@ func (r *LiveRebuild) Watch() {
 
 		case _ = <-ticker.C:
 			for u_f, p_u := range pending {
-				log.Debugf("update[%s]: %q", u_f.Name(), p_u)
-				// TODO: deduplicate the p_u list
-				u_f.Update(BatchDuration, p_u...)
+				var l []string
+				for x, _ := range p_u {
+					l = append(l, x)
+				}
+				log.Debugf("update[%s]: %q", u_f.Name(), l)
+				u_f.Update(BatchDuration, l...)
 			}
 			pending = make(p_u_map)
 		}
