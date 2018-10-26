@@ -69,6 +69,7 @@ type updaters struct {
 }
 
 func main() {
+	// FIXME: allow override name from env.
 	parseConfig(".liverebuildrc")
 
 	if Config.Verbose {
@@ -79,6 +80,7 @@ func main() {
 	up := new(updaters)
 	var err error
 
+	// TODO  move parsing to each updater
 	if len(Config.Static.Paths) > 0 {
 		if up.static, err = updater.NewStaticServer(
 			Config.Static.Address,
